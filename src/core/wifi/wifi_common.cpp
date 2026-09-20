@@ -54,7 +54,7 @@ void ensureWifiPlatform() {
 
 bool _wifiConnect(const String &ssid, int encryption, int32_t channel, const uint8_t* bssid) {
     String password = bruceConfig.getWifiPassword(ssid);
-    if (password == "" && encryption > 0) { password = keyboard(password, 63, "Network Password:", true); }
+    if (password == "" && encryption > 0) { password = keyboard(password, 63, "Network Password:", false); }
     if (password == "\x1B") return false;
     bool connected = _connectToWifiNetwork(ssid, password, channel, bssid);
     bool retry = false;
@@ -73,7 +73,7 @@ bool _wifiConnect(const String &ssid, int encryption, int32_t channel, const uin
             return false;
         }
 
-        password = keyboard(password, 63, "Network Password:", true);
+        password = keyboard(password, 63, "Network Password:", false);
         if (password == "\x1B") {
             wifiDisconnect();
             return false;
@@ -325,7 +325,7 @@ void wifiConnectTask(void *pvParameters) {
         pwd = bruceConfig.getWifiPassword(ssid);
         // An empty password only means "unknown network" for secured APs: known open
         // networks are stored with an empty password and must be joined without one.
-        bool knownOpenNet = WiFi.encryptionType(i) == WIFI_AUTH_OPEN && bruceConfig.hasWifiCredential(ssid);
+        bool knownOpenNet = WiFi.encryptionType(i) == WIFI_AUTH_OPEN && (bruceConfig.getWifiPassword(ssid) != "");
         if (pwd == "" && !knownOpenNet) continue;
 
         int32_t ch = WiFi.channel(i);
