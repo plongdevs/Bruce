@@ -286,9 +286,13 @@ void boot_screen() {
 /*********************************************************************
  **  Function: boot_screen_anim
  **  Matrix hiện trước → boot_screen (Bruce/ver) hiện sau → ZYRO MODZ
+ ******************************************************************* 
+/*********************************************************************
+ **  Function: boot_screen_anim
+ **  Matrix 3s → boot_screen → menu
  *********************************************************************/
 void boot_screen_anim() {
-    // ⭐ KHÔNG gọi boot_screen() ở đây nữa
+    // ⭐ KHÔNG gọi boot_screen() ở đầu — để nó hiện sau matrix
     int i = millis();
 
     int boot_img = 0;
@@ -315,21 +319,16 @@ void boot_screen_anim() {
     const int matrixTopMargin = 10;
     bool matrixMode = false;
 
-    // Timeline mới
-    const uint32_t PHASE1_START    = 2000;   // 2s:  bắt đầu matrix loop
-    const uint32_t BOOT_INFO_START = 3500;   // 3.5s: hiện boot_screen (Bruce/ver/Zyro Modz)
-    const uint32_t BOOT_INFO_END   = 5000;   // 5s:  matrix resume với ZYRO MODZ
-    const uint32_t BOOT_END        = 7000;   // 7s:  kết thúc
+    // Timeline
+    const uint32_t MATRIX_START   = 2000;   // 2s: bắt đầu matrix loop (sau khi qua phase ảnh/custom)
+    const uint32_t MATRIX_DURATION = 3000;  // matrix chạy 3 giây
+    const uint32_t BOOT_INFO_HOLD  = 1500;  // boot_screen hiện 1.5 giây
+    const uint32_t BOOT_END        = MATRIX_START + MATRIX_DURATION + BOOT_INFO_HOLD + 500;
 
-    // Cờ điều khiển
-    bool bootInfoShown = false;
-    bool matrixPaused  = false;
-
-    // Sprite title — chống nháy
+    // Sprite title
     const int OUTLINE = 3;
     const uint16_t TRANSP = 0x0123;
     TFT_eSprite* sprLauncher = nullptr;
-    TFT_eSprite* sprZyro     = nullptr;
 
     auto buildTitleSprite = [&](const String& txt) -> TFT_eSprite* {
         tft.setTextSize(FG);
@@ -349,14 +348,22 @@ void boot_screen_anim() {
     };
 
     // ============================================================
+    //  STATE MACHINE
+    // ============================================================
+    enum BootState { STATE_IDLE, STATE_MATRIX, STATE_BOOTINFO, STATE_DONE };
+    BootState state = STATE_IDLE;
+    uint32_t stateStart = millis();
+
+    // ============================================================
 
     while (millis() < i + BOOT_END) {
         uint32_t elapsed = millis() - i;
+        uint32_t stateElapsed = millis() - stateStart;
 
         // ------------------------------------------------------------
-        //  BƯỚC 1: Ảnh custom OR bật matrix mode
+        //  BƯỚC 1: chuẩn bị (đợi 2s rồi vào matrix)
         // ------------------------------------------------------------
-        if (elapsed > PHASE1_START && !drawn) {
+        if (elapsed > MATRIX_START && !drawn) {
             tft.fillRect(0, 45, tftWidth, tftHeight - 45, bruceConfig.bgColor);
             if (boot_img > 0) {
                 tft.fillScreen(bruceConfig.bgColor);
@@ -364,83 +371,42 @@ void boot_screen_anim() {
                     drawImg(*bruceConfig.themeFS(),
                             bruceConfig.getThemeItemImg(bruceConfig.theme.paths.boot_img),
                             0, 0, true, 3600);
-                    Serial.println("Image from SD theme");
-                } else if (boot_img == 1) {
-                    drawImg(SD, "/boot.jpg", 0, 0, true);
-                    Serial.println("Image from SD");
-                } else if (boot_img == 2) {
-                    drawImg(LittleFS, "/boot.jpg", 0, 0, true);
-                    Serial.println("Image from LittleFS");
-                } else if (boot_img == 3) {
-                    drawImg(SD, "/boot.gif", 0, 0, true, 3600);
-                    Serial.println("Image from SD");
-                } else if (boot_img == 4) {
-                    drawImg(LittleFS, "/boot.gif", 0, 0, true, 3600);
-                    Serial.println("Image from LittleFS");
-                }
+                } else if (boot_img == 1) drawImg(SD, "/boot.jpg", 0, 0, true);
+                else if (boot_img == 2) drawImg(LittleFS, "/boot.jpg", 0, 0, true);
+                else if (boot_img == 3) drawImg(SD, "/boot.gif", 0, 0, true, 3600);
+                else if (boot_img == 4) drawImg(LittleFS, "/boot.gif", 0, 0, true, 3600);
                 tft.drawPixel(0, 0, 0);
             } else {
                 tft.fillScreen(bruceConfig.bgColor);
                 matrixMode = true;
                 sprLauncher = buildTitleSprite("Launcher");
-                sprZyro     = buildTitleSprite("ZYRO MODZ");
+                state = STATE_MATRIX;
+                stateStart = millis();
             }
             drawn = true;
         }
 
         // ------------------------------------------------------------
-        //  BƯỚC 2: HIỆN BOOT_SCREEN (sau khi matrix đã chạy 1.5s)
+        //  BƯỚC 2: STATE_MATRIX — vẽ matrix, chờ 3s hoặc nhấn nút
         // ------------------------------------------------------------
-        if (matrixMode && elapsed > BOOT_INFO_START && !bootInfoShown) {
-            tft.fillScreen(bruceConfig.bgColor);
-            boot_screen();          // ⭐ Bruce / version / Zyro Modz
-            bootInfoShown = true;
-            matrixPaused  = true;   // tạm dừng matrix
-        }
-
-        // ------------------------------------------------------------
-        //  BƯỚC 3: Resume matrix sau khi boot_screen hiện xong
-        // ------------------------------------------------------------
-        if (matrixPaused && elapsed > BOOT_INFO_END) {
-            matrixPaused = false;
-            tft.fillScreen(bruceConfig.bgColor);
-        }
-
-        // ------------------------------------------------------------
-        //  BƯỚC 4: MATRIX LOOP
-        // ------------------------------------------------------------
-        if (matrixMode && !matrixPaused) {
+        if (state == STATE_MATRIX) {
+            // Vẽ 1 pass matrix
             tft.drawRoundRect(3, 3, tftWidth - 6, tftHeight - 6, 5, bruceConfig.priColor);
-
             tft.setTextSize(FP);
-            int _x = 10;
-            int _y = matrixTopMargin;
+            int _x = 10, _y = matrixTopMargin;
 
             while (_y < (tftHeight - 12)) {
                 int cor  = random(0, 11);
-                tft.setTextSize(FP);
                 int show = random(0, 40);
-
                 if (show == 0) {
                     String txt;
-                    if (cor == 10) {
-                        txt = " ";
-                    } else if (cor & 1) {
-                        tft.setTextColor(odd_color, bruceConfig.bgColor);
-                        txt = String(cor);
-                    } else {
-                        tft.setTextColor(even_color, bruceConfig.bgColor);
-                        txt = String(cor);
-                    }
+                    if (cor == 10) txt = " ";
+                    else if (cor & 1) { tft.setTextColor(odd_color, bruceConfig.bgColor); txt = String(cor); }
+                    else              { tft.setTextColor(even_color, bruceConfig.bgColor); txt = String(cor); }
 
-                    if (_x >= (tftWidth - (6 * FP + 4))) {
-                        _x = 10;
-                        _y += 8 * FP;
-                    } else if (_x < 10) {
-                        _x = 10;
-                    }
+                    if (_x >= (tftWidth - (6 * FP + 4))) { _x = 10; _y += 8 * FP; }
+                    else if (_x < 10) _x = 10;
                     if (_y >= (tftHeight - (8 * FP + 8 * FP / 2))) break;
-
                     tft.setCursor(_x, _y);
 
                     if (_y > (tftHeight - (8 * FM + 8 * FP / 2)) &&
@@ -458,31 +424,23 @@ void boot_screen_anim() {
                         _x += 6 * FP * name.length();
                     else
                         _x += 6 * FP;
-
-                    if (_x >= (tftWidth - (6 * FP + 4))) {
-                        _x = 10;
-                        _y += 8 * FP;
-                    }
+                    if (_x >= (tftWidth - (6 * FP + 4))) { _x = 10; _y += 8 * FP; }
                 }
                 tft.setCursor(_x, _y);
             }
 
-            // Watermark — chỉ hiện ở phase "Launcher"
-            if (elapsed < BOOT_INFO_START) {
-                tft.setTextSize(FP);
-                tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-                int wx = tftWidth - 10 - 6 * FP * name.length();
-                int wy = tftHeight - 8 * FM - 8 * FP / 2 + 2;
-                tft.setCursor(wx, wy);
-                tft.print(name);
-            }
+            // Watermark @Pirata
+            tft.setTextSize(FP);
+            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+            tft.setCursor(tftWidth - 10 - 6 * FP * name.length(),
+                          tftHeight - 8 * FM - 8 * FP / 2 + 2);
+            tft.print(name);
 
-            // Title sprite — Launcher trước, ZYRO MODZ sau
-            TFT_eSprite* spr = (elapsed < BOOT_INFO_END) ? sprLauncher : sprZyro;
-            if (spr) {
-                spr->pushSprite((tftWidth - spr->width()) / 2,
-                                tftHeight / 2 - 10 - OUTLINE,
-                                TRANSP);
+            // Title sprite
+            if (sprLauncher) {
+                sprLauncher->pushSprite((tftWidth - sprLauncher->width()) / 2,
+                                        tftHeight / 2 - 10 - OUTLINE,
+                                        TRANSP);
             }
 
             // Footer
@@ -492,31 +450,59 @@ void boot_screen_anim() {
             tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
             tft.setTextSize(FM);
             tft.drawString("<<", 11, footerY + 4);
-            if (elapsed < BOOT_INFO_END)
-                tft.drawCentreString("LAUNCHER", tftWidth / 2, footerY + 4, 1);
-            else
-                tft.drawCentreString("ZYRO MODZ BRUCE PLONG", tftWidth / 2, footerY + 4, 1);
+            tft.drawCentreString("LAUNCHER", tftWidth / 2, footerY + 4, 1);
             tft.drawRightString(">>", tftWidth - 11, footerY + 4, 1);
+
+            // ⭐ Chuyển sang boot_screen khi:
+            //   (a) đã chạy 3 giây, HOẶC
+            //   (b) user nhấn nút
+            bool timeUp  = (stateElapsed >= MATRIX_DURATION);
+            bool keyDown = check(AnyKeyPress);
+
+            if (timeUp || keyDown) {
+                state = STATE_BOOTINFO;
+                stateStart = millis();
+                tft.fillScreen(bruceConfig.bgColor);
+                boot_screen();          // ⭐ Bruce PLong Zyro Modz
+            }
         }
 
-        // ---- Skip ----
-        if (check(AnyKeyPress)) {
-            if (sprLauncher) { sprLauncher->deleteSprite(); delete sprLauncher; sprLauncher = nullptr; }
-            if (sprZyro)     { sprZyro->deleteSprite();     delete sprZyro;     sprZyro     = nullptr; }
-            tft.fillScreen(bruceConfig.bgColor);
-            delay(10);
-            return;
+        // ------------------------------------------------------------
+        //  BƯỚC 3: STATE_BOOTINFO — hiện boot_screen, chờ 1.5s hoặc nút
+        // ------------------------------------------------------------
+        else if (state == STATE_BOOTINFO) {
+            // boot_screen đã vẽ rồi, chỉ đợi
+            bool timeUp  = (stateElapsed >= BOOT_INFO_HOLD);
+            bool keyDown = check(AnyKeyPress);
+
+            if (timeUp || keyDown) {
+                state = STATE_DONE;
+                tft.fillScreen(bruceConfig.bgColor);
+                break;
+            }
+        }
+
+        // ------------------------------------------------------------
+        //  Xử lý skip tổng (nếu user nhấn phím lúc đang ở trạng thái IDLE)
+        // ------------------------------------------------------------
+        if (state == STATE_IDLE && check(AnyKeyPress)) {
+            // Nhấn phím lúc chưa vào matrix → vào matrix ngay
+            if (!matrixMode) {
+                tft.fillScreen(bruceConfig.bgColor);
+                matrixMode = true;
+                sprLauncher = buildTitleSprite("Launcher");
+            }
+            state = STATE_MATRIX;
+            stateStart = millis();
         }
 
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 
-    // ---- Cleanup ----
+    // Cleanup
     if (sprLauncher) { sprLauncher->deleteSprite(); delete sprLauncher; }
-    if (sprZyro)     { sprZyro->deleteSprite();     delete sprZyro; }
     tft.fillScreen(bruceConfig.bgColor);
 }
-
 /*********************************************************************
  **  Function: init_clock
  **  Clock initialisation for propper display in menu
