@@ -288,92 +288,79 @@ void boot_screen() {
  **  Draw boot screen
  *********************************************************************/
 void boot_screen_anim() {
-    boot_screen();
-    int i = millis();
-    // checks for boot.jpg in SD and LittleFS for customization
-    int boot_img = 0;
-    bool drawn = false;
-    if (sdcardMounted) {
-        if (SD.exists("/boot.jpg")) boot_img = 1;
-        else if (SD.exists("/boot.gif")) boot_img = 3;
-    }
-    if (boot_img == 0 && LittleFS.exists("/boot.jpg")) boot_img = 2;
-    else if (boot_img == 0 && LittleFS.exists("/boot.gif")) boot_img = 4;
-    if (bruceConfig.theme.boot_img) boot_img = 5; // override others
+    // Để giữ giống ảnh màn hình ngang của bạn, dùng rotation mặc định. 
+    // (Nếu bạn vẫn muốn ép dọc hẳn, đổi thành tft.setRotation(0) nhé)
+    tft.setRotation(bruceConfigPins.rotation); 
+    tftWidth = tft.width();
+    tftHeight = tft.height();
 
-    tft.drawPixel(0, 0, 0);       // Forces back communication with TFT, to avoid ghosting
-                                  // Start image loop
-    while (millis() < i + 7000) { // boot image lasts for 5 secs
-        if ((millis() - i > 2000) && !drawn) {
-            tft.fillRect(0, 45, tftWidth, tftHeight - 45, bruceConfig.bgColor);
-            if (boot_img > 0 && !drawn) {
-                tft.fillScreen(bruceConfig.bgColor);
-                if (boot_img == 5) {
-                    drawImg(
-                        *bruceConfig.themeFS(),
-                        bruceConfig.getThemeItemImg(bruceConfig.theme.paths.boot_img),
-                        0,
-                        0,
-                        true,
-                        3600
-                    );
-                    Serial.println("Image from SD theme");
-                } else if (boot_img == 1) {
-                    drawImg(SD, "/boot.jpg", 0, 0, true);
-                    Serial.println("Image from SD");
-                } else if (boot_img == 2) {
-                    drawImg(LittleFS, "/boot.jpg", 0, 0, true);
-                    Serial.println("Image from LittleFS");
-                } else if (boot_img == 3) {
-                    drawImg(SD, "/boot.gif", 0, 0, true, 3600);
-                    Serial.println("Image from SD");
-                } else if (boot_img == 4) {
-                    drawImg(LittleFS, "/boot.gif", 0, 0, true, 3600);
-                    Serial.println("Image from LittleFS");
+    tft.fillScreen(TFT_BLACK);
+
+    // 1. Load ảnh nền matrix (boot.jpg)
+    bool imgLoaded = false;
+    if (sdcardMounted && SD.exists("/boot.jpg")) {
+        drawImg(SD, "/boot.jpg", 0, 0, true);
+        imgLoaded = true;
+    } else if (LittleFS.exists("/boot.jpg")) {
+        drawImg(LittleFS, "/boot.jpg", 0, 0, true);
+        imgLoaded = true;
+    }
+
+    // Nếu không có ảnh, vẽ chữ Launcher bự ở giữa dự phòng
+    if (!imgLoaded) {
+        tft.setTextColor(TFT_GREEN, TFT_BLACK);
+        tft.setTextSize(FM);
+        tft.drawCentreString("Launcher", tftWidth / 2, tftHeight / 2 - 20, 1);
+    }
+
+    // 2. Vẽ Footer giống hệt trong ảnh chụp
+    int footerHeight = 25;
+    int footerY = tftHeight - footerHeight;
+    
+    // Vẽ khung viền xanh lá và đường gạch ngang đôi
+    tft.drawRect(0, footerY, tftWidth, footerHeight, TFT_GREEN);
+    tft.drawLine(0, footerY - 2, tftWidth, footerY - 2, TFT_GREEN); 
+
+    tft.setTextColor(TFT_GREEN, TFT_BLACK); // Nền đen, chữ xanh để đè lên ảnh
+    tft.setTextSize(FP); 
+    
+    // Vẽ chữ << bên trái
+    tft.drawString("  <<  ", 10, footerY + 6, 1);
+    
+    // Vẽ chữ ZYRO MODZ ở chính giữa
+    tft.drawCentreString("ZYRO MODZ", tftWidth / 2, footerY + 6, 1);
+    
+    // Vẽ chữ >> bên phải
+    tft.drawRightString("  >>  ", tftWidth - 10, footerY + 6, 1);
+
+    tft.drawPixel(0, 0, 0); // Tránh ghosting
+
+    // 3. Vòng lặp chờ 3 giây và bắt sự kiện bỏ qua
+    uint32_t start_time = millis();
+    while (millis() - start_time < 3000) {
+        // Nếu bấm phím cứng
+        if (check(AnyKeyPress)) break; 
+
+        // Nếu chạm màn hình cảm ứng
+        if (touchPoint.pressed) {
+            int tx = touchPoint.x;
+            int ty = touchPoint.y;
+            
+            // Kiểm tra nếu chạm vào vùng đáy màn hình (khu vực footer)
+            if (ty > footerY - 10) {
+                // Chạm vào 1/3 góc trái (chỗ nút <<) hoặc 1/3 góc phải (chỗ nút >>)
+                if (tx < tftWidth / 3 || tx > 2 * tftWidth / 3) {
+                    break; // Skip ngay lập tức
                 }
-                tft.drawPixel(0, 0, 0); // Forces back communication with TFT, to avoid ghosting
             }
-            drawn = true;
         }
-#if !defined(LITE_VERSION)
-        if (!boot_img && (millis() - i > 2200) && (millis() - i) < 2700)
-            tft.drawRect(2 * tftWidth / 3, tftHeight / 2, 2, 2, bruceConfig.priColor);
-        if (!boot_img && (millis() - i > 2700) && (millis() - i) < 2900)
-            tft.fillRect(0, 45, tftWidth, tftHeight - 45, bruceConfig.bgColor);
-        if (!boot_img && (millis() - i > 2900) && (millis() - i) < 3400)
-            tft.drawXBitmap(
-                2 * tftWidth / 3 - 30,
-                5 + tftHeight / 2,
-                bruce_small_bits,
-                bruce_small_width,
-                bruce_small_height,
-                bruceConfig.bgColor,
-                bruceConfig.priColor
-            );
-        if (!boot_img && (millis() - i > 3400) && (millis() - i) < 3600) tft.fillScreen(bruceConfig.bgColor);
-        if (!boot_img && (millis() - i > 3600))
-            tft.drawXBitmap(
-                (tftWidth - 238) / 2,
-                (tftHeight - 133) / 2,
-                bits,
-                bits_width,
-                bits_height,
-                bruceConfig.bgColor,
-                bruceConfig.priColor
-            );
-#endif
-        if (check(AnyKeyPress)) // If any key or M5 key is pressed, it'll jump the boot screen
-        {
-            tft.fillScreen(bruceConfig.bgColor);
-            delay(10);
-            return;
-        }
+        vTaskDelay(pdMS_TO_TICKS(20)); // Chống kẹt CPU
     }
 
-    // Clear splashscreen
+    // Xóa màn hình chuyển vào Menu chính
     tft.fillScreen(bruceConfig.bgColor);
+    delay(10);
 }
-
 /*********************************************************************
  **  Function: init_clock
  **  Clock initialisation for propper display in menu
