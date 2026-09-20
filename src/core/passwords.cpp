@@ -74,7 +74,7 @@ String readDecryptedFileOLD(FS &fs, String filepath) {
 String readDecryptedFile(FS &fs, String filepath) {
 
     if (cachedPassword.length() == 0) {
-        cachedPassword = keyboard("", 32, "Password:", true);
+        cachedPassword = keyboard("", 32, "Password:", false);
         if (cachedPassword.length() == 0 || cachedPassword == "\x1B") return ""; // cancelled
     }
 
