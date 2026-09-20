@@ -1156,8 +1156,11 @@ String generalKeyboard(
                 if (current_text.length() < max_size && !KeyStroke.enter && !KeyStroke.del) {
                     current_text += keyStr;
                     if (current_text.length() != (max_FM_size + 1) &&
-                        current_text.length() != (max_FM_size + 1))
-                        tft.print(keyStr.c_str());
+                        current_text.length() != (max_FM_size + 1)) {
+                        // FIX: honor mask_input so password fields don't leak the typed characters
+                        if (mask_input) tft.print("*");
+                        else tft.print(keyStr.c_str());
+                    }
                     cursor_x = tft.getCursorX();
                     cursor_y = tft.getCursorY();
                     if (current_text.length() == (max_FM_size + 1)) redraw = true;

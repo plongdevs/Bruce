@@ -68,7 +68,6 @@ int gsetRotation(bool set) {
 #if TFT_WIDTH >= 170 && TFT_HEIGHT >= 240
         {"Portrait (+90)",  [&]() { result = ROTATION > 0 ? ROTATION - 1 : 3; } },
         {"Portrait (-90)",  [&]() { result = ROTATION == 3 ? 0 : ROTATION + 1; }},
-
 #endif
     };
     addOptionToMainMenu();
@@ -82,8 +81,7 @@ int gsetRotation(bool set) {
     if (set) {
         bruceConfigPins.setRotation(result);
         tft.setRotation(result);
-        tft.setRotation(result); // must repeat, sometimes ESP32S3 miss one SPI command and it just
-                                 // jumps this step and don't rotate
+        tft.setRotation(result);
     }
     returnToMenu = true;
 
@@ -154,7 +152,7 @@ void setBrightnessMenu() {
              return false;
          }}
     };
-    addOptionToMainMenu(); // this one bugs the brightness selection
+    addOptionToMainMenu();
     loopOptions(options, MENU_TYPE_REGULAR, "", idx);
     setBrightness(bruceConfig.bright, false);
 }
@@ -365,20 +363,17 @@ void setCustomUIColorSettingMenu(
 
     static auto hoverFunctionPriColor = [](void *pointer, bool shouldRender) -> bool {
         uint16_t colorToSet = *static_cast<uint16_t *>(pointer);
-        // Serial.printf("Setting primary color to: %04X\n", colorToSet);
         bruceConfig.priColor = colorToSet;
         return false;
     };
     static auto hoverFunctionSecColor = [](void *pointer, bool shouldRender) -> bool {
         uint16_t colorToSet = *static_cast<uint16_t *>(pointer);
-        // Serial.printf("Setting secondary color to: %04X\n", colorToSet);
         bruceConfig.secColor = colorToSet;
         return false;
     };
 
     static auto hoverFunctionBgColor = [](void *pointer, bool shouldRender) -> bool {
         uint16_t colorToSet = *static_cast<uint16_t *>(pointer);
-        // Serial.printf("Setting bg color to: %04X\n", colorToSet);
         bruceConfig.bgColor = colorToSet;
         tft.fillScreen(bruceConfig.bgColor);
         return false;
@@ -442,8 +437,7 @@ void setCustomUIColorSettingMenu(
 }
 
 /*********************************************************************
-**  Function: setSoundConfig - 01/2026 - Refactored "ConfigMenu" (this function manteined for
-* retrocompatibility)
+**  Function: setSoundConfig
 **  Enable or disable sound
 **********************************************************************/
 void setSoundConfig() {
@@ -476,8 +470,7 @@ void setSoundVolume() {
 
 #ifdef HAS_RGB_LED
 /*********************************************************************
-**  Function: setLedBlinkConfig - 01/2026 - Refactored "ConfigMenu" (this function manteined for
-* retrocompatibility)
+**  Function: setLedBlinkConfig
 **  Enable or disable led blink
 **********************************************************************/
 void setLedBlinkConfig() {
@@ -528,7 +521,6 @@ void removeEvilWifiMenu() {
 
 /*********************************************************************
 **  Function: setEvilEndpointCreds
-**  Handles menu for changing the endpoint to access captured creds
 **********************************************************************/
 void setEvilEndpointCreds() {
     String userInput = keyboard(bruceConfig.evilPortalEndpoints.getCredsEndpoint, 30, "Evil creds endpoint");
@@ -537,7 +529,6 @@ void setEvilEndpointCreds() {
 
 /*********************************************************************
 **  Function: setEvilEndpointSsid
-**  Handles menu for changing the endpoint to change evilSsid
 **********************************************************************/
 void setEvilEndpointSsid() {
     String userInput = keyboard(bruceConfig.evilPortalEndpoints.setSsidEndpoint, 30, "Evil creds endpoint");
@@ -545,10 +536,8 @@ void setEvilEndpointSsid() {
 }
 
 /*********************************************************************
-**  Function: setEvilAllowGetCredentials
-**  Handles menu for toggling access to the credential list endpoint
+**  Function: setEvilAllowGetCreds
 **********************************************************************/
-
 void setEvilAllowGetCreds() {
     options = {
         {"Disallow",
@@ -562,10 +551,8 @@ void setEvilAllowGetCreds() {
 }
 
 /*********************************************************************
-**  Function: setEvilAllowGetCredentials
-**  Handles menu for toggling access to the change SSID endpoint
+**  Function: setEvilAllowSetSsid
 **********************************************************************/
-
 void setEvilAllowSetSsid() {
     options = {
         {"Disallow",
@@ -580,9 +567,7 @@ void setEvilAllowSetSsid() {
 
 /*********************************************************************
 **  Function: setEvilAllowEndpointDisplay
-**  Handles menu for toggling the display of the Evil Portal endpoints
 **********************************************************************/
-
 void setEvilAllowEndpointDisplay() {
     options = {
         {"Disallow",
@@ -597,7 +582,6 @@ void setEvilAllowEndpointDisplay() {
 
 /*********************************************************************
 ** Function: setEvilPasswordMode
-** Handles menu for setting the evil portal password mode
 ***********************************************************************/
 void setEvilPasswordMode() {
     options = {
@@ -619,7 +603,6 @@ void setEvilPasswordMode() {
 
 /*********************************************************************
 ** Function: setEvilGatewayIp
-** Handles menu for setting the Evil Portal gateway IP
 ***********************************************************************/
 void setEvilGatewayIp() {
     options = {
@@ -639,7 +622,6 @@ void setEvilGatewayIp() {
 
 /*********************************************************************
 **  Function: setRFModuleMenu
-**  Handles Menu to set the RF module in use
 **********************************************************************/
 void setRFModuleMenu() {
     int result = 0;
@@ -667,15 +649,9 @@ void setRFModuleMenu() {
 #ifdef CAP_CC1101_SS_PIN
         {"CC1101 M5 Cap", [&pins_setup]() { pins_setup = 3; }},
 #endif
-        /* WIP:
-         * #ifdef USE_CC1101_VIA_PCA9554
-         * {"CC1101+PCA9554",  [&]() { result = 2; }},
-         * #endif
-         */
     };
     loopOptions(options, idx);
     if (result == CC1101_SPI_MODULE || pins_setup > 0) {
-        // This setting is meant to StickCPlus and StickCPlus2 to setup the ports from RF Menu
         if (pins_setup == 1) {
             result = CC1101_SPI_MODULE;
             bruceConfigPins.setCC1101Pins(
@@ -717,8 +693,6 @@ void setRFModuleMenu() {
         }
 #ifdef CAP_CC1101_SS_PIN
         else if (pins_setup == 3) {
-            // M5Stack Cap CC1101: shares the default SPI port with the SD card and the cap's
-            // own ST25R3916. https://docs.m5stack.com/en/cap/Cap_CC1101
             result = CC1101_SPI_MODULE;
             bruceConfigPins.setCC1101Pins(
                 {(gpio_num_t)SPI_SCK_PIN,
@@ -730,11 +704,6 @@ void setRFModuleMenu() {
             );
         }
 #endif
-        // initRfModule() dispatches on rfModule, so the pin presets have to already say CC1101 or
-        // it takes the single-pin path and reports success without ever probing the chip - which
-        // is the whole point of the "not found" + wiring QR below. Left alone for the plain
-        // "CC1101" entry, which is still selectable blind so the pins can be set afterwards.
-        // Not saved yet: the error path below falls back to M5_RF_MODULE and saves that instead.
         if (pins_setup > 0) bruceConfigPins.rfModule = CC1101_SPI_MODULE;
         if (initRfModule()) {
             bruceConfigPins.setRfModule(CC1101_SPI_MODULE);
@@ -742,7 +711,6 @@ void setRFModuleMenu() {
             if (pins_setup == 1) AUX_SPI.end();
             return;
         }
-        // else display an error
         displayError("CC1101 not found", true);
         if (pins_setup == 1)
             qrcode_display("https://github.com/pr3y/Bruce/blob/main/media/connections/cc1101_stick.jpg");
@@ -752,34 +720,30 @@ void setRFModuleMenu() {
             );
         while (!check(AnyKeyPress)) vTaskDelay(50 / portTICK_PERIOD_MS);
     }
-    // fallback to "M5 RF433T/R" on errors
     bruceConfigPins.setRfModule(M5_RF_MODULE);
 }
 
 /*********************************************************************
 **  Function: setRFFreqMenu
-**  Handles Menu to set the default frequency for the RF module
 **********************************************************************/
 void setRFFreqMenu() {
     float result = 433.92;
     String freq_str = num_keyboard(String(bruceConfigPins.rfFreq), 10, "Default frequency:");
     if (freq_str == "\x1B") return;
     if (freq_str.length() > 1) {
-        result = freq_str.toFloat();          // returns 0 if not valid
-        if (result >= 280 && result <= 928) { // TODO: check valid freq according to current module?
+        result = freq_str.toFloat();
+        if (result >= 280 && result <= 928) {
             bruceConfigPins.setRfFreq(result);
             return;
         }
     }
-    // else
     displayError("Invalid frequency");
-    bruceConfigPins.setRfFreq(433.92); // reset to default
+    bruceConfigPins.setRfFreq(433.92);
     delay(1000);
 }
 
 /*********************************************************************
 **  Function: setRFIDModuleMenu
-**  Handles Menu to set the RFID module in use
 **********************************************************************/
 void setRFIDModuleMenu() {
     options = {
@@ -812,8 +776,6 @@ void setRFIDModuleMenu() {
          [=]() { bruceConfigPins.setRfidModule(ST25R3916_I2C_MODULE); },
          bruceConfigPins.rfidModule == ST25R3916_I2C_MODULE},
 #ifdef CAP_NFC_SS_PIN
-        // M5Stack Cap CC1101: its NFC half is an ST25R3916 on the default SPI port.
-        // https://docs.m5stack.com/en/cap/Cap_CC1101
         {"CC1101 M5 Cap",
          [=]() {
              bruceConfigPins.setSR25RPins(
@@ -836,7 +798,6 @@ void setRFIDModuleMenu() {
 
 /*********************************************************************
 **  Function: addMifareKeyMenu
-**  Handles Menu to add MIFARE keys into config list
 **********************************************************************/
 void addMifareKeyMenu() {
     String key = keyboard("", 12, "MIFARE key");
@@ -851,6 +812,31 @@ const char *ntpServer = "pool.ntp.org";
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, ntpServer, 0, 0);
+
+/*********************************************************************
+**  Function: syncTimeViaNTPAtBoot
+**  Auto-sync the clock at boot when WiFi startup is enabled and
+**  the user has chosen "Via NTP" for time updates. Without this,
+**  the saved timezone (bruceConfig.tmz) is kept across reboots but
+**  the wall-clock time is not fetched until the user manually opens
+**  Settings -> Clock -> NTP timezone.
+**********************************************************************/
+void syncTimeViaNTPAtBoot() {
+    if (!bruceConfig.automaticTimeUpdateViaNTP) {
+        Serial.println("[NTP] Auto-update disabled, skipping boot sync");
+        return;
+    }
+    if (!wifiConnected) {
+        Serial.println("[NTP] WiFi not connected, skipping boot sync");
+        return;
+    }
+
+    Serial.printf(
+        "[NTP] Boot sync: tz=%.2f dst=%d\n", bruceConfig.tmz, bruceConfig.dst ? 1 : 0
+    );
+    updateClockTimezone();
+    clock_set = true;
+}
 
 void setClock() {
 #if defined(HAS_RTC)
@@ -975,7 +961,7 @@ void setClock() {
         updateClockTimezone();
 
     } else {
-        int hr, mn, am = 0; // Initialize am to default value
+        int hr, mn, am = 0;
         options = {};
         for (int i = 0; i < 12; i++) {
             String tmp = String(i < 10 ? "0" : "") + String(i);
@@ -1019,7 +1005,7 @@ void setClock() {
         struct timeval tv = {.tv_sec = epoch};
         settimeofday(&tv, nullptr);
 #else
-        rtc.setTime(0, mn, hr + am, 20, 06, CURRENT_YEAR); // send me a gift, @Pirata!
+        rtc.setTime(0, mn, hr + am, 20, 06, CURRENT_YEAR);
         struct tm t = rtc.getTimeStruct();
         time_t epoch = mktime(&t);
         struct timeval tv = {.tv_sec = epoch};
@@ -1030,6 +1016,22 @@ void setClock() {
 }
 
 void runClockLoop(bool showMenuHint) {
+    // Boot-time NTP sync: on the first call after boot, if WiFi is up and
+    // auto NTP is enabled but the clock hasn't been set yet, show a short
+    // status message while fetching time, then clear it and let the clock
+    // take over. Uses a static flag so it only runs once per boot.
+    static bool bootTimeSyncDone = false;
+    if (!bootTimeSyncDone && bruceConfig.automaticTimeUpdateViaNTP && wifiConnected && !clock_set) {
+        tft.fillScreen(bruceConfig.bgColor);
+        tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+        tft.setTextSize(FM);
+        tft.drawCentreString("Syncing time...", tftWidth / 2, tftHeight / 2, 1);
+        updateClockTimezone();
+        clock_set = true;
+        bootTimeSyncDone = true;
+        tft.fillScreen(bruceConfig.bgColor);
+    }
+
     int tmp = 0;
     unsigned long hintStartTime = millis();
     bool hintVisible = showMenuHint;
@@ -1044,7 +1046,6 @@ void runClockLoop(bool showMenuHint) {
     _rtc.GetTime(&_time);
 #endif
 
-    // Delay due to SelPress() detected on run
     tft.fillScreen(bruceConfig.bgColor);
     delay(300);
 
@@ -1075,12 +1076,10 @@ void runClockLoop(bool showMenuHint) {
             tft.setTextSize(f_size);
             tft.drawCentreString(timeStr, tftWidth / 2, tftHeight / 2 - 13, 1);
 
-            // "OK to show menu" hint management
             if (hintVisible && (millis() - hintStartTime < 5000)) {
                 tft.setTextSize(FP);
                 tft.drawCentreString("OK to show menu", tftWidth / 2, tftHeight / 2 + 25, 1);
             } else if (hintVisible && (millis() - hintStartTime >= 5000)) {
-                // Clear hint after 5 seconds
                 tft.fillRect(
                     BORDER_PAD_X + 1,
                     tftHeight / 2 + 20,
@@ -1093,14 +1092,11 @@ void runClockLoop(bool showMenuHint) {
             tmp = millis();
         }
 
-        // Checks to exit the loop
         if (check(SelPress)) {
             tft.fillScreen(bruceConfig.bgColor);
             if (showMenuHint) {
-                // Exits the loop to return to the caller (ClockMenu)
                 break;
             } else {
-                // Original behavior
                 returnToMenu = true;
                 break;
             }
@@ -1118,7 +1114,6 @@ void runClockLoop(bool showMenuHint) {
 
 /*********************************************************************
 **  Function: gsetIrTxPin
-**  get or set IR Tx Pin
 **********************************************************************/
 int gsetIrTxPin(bool set) {
     int result = bruceConfigPins.irTx;
@@ -1156,14 +1151,13 @@ int gsetIrTxPin(bool set) {
 }
 
 void setIrTxRepeats() {
-    uint8_t chRpts = 0; // Chosen Repeats
+    uint8_t chRpts = 0;
 
     options = {
         {"None",             [&]() { chRpts = 0; } },
         {"5  (+ 1 initial)", [&]() { chRpts = 5; } },
         {"10 (+ 1 initial)", [&]() { chRpts = 10; }},
         {"Custom",           [&]() {
-             // up to 99 repeats
              String rpt =
                  num_keyboard(String(bruceConfigPins.irTxRepeats), 2, "Nbr of Repeats (+ 1 initial)");
              chRpts = static_cast<uint8_t>(rpt.toInt());
@@ -1177,9 +1171,9 @@ void setIrTxRepeats() {
 
     bruceConfigPins.setIrTxRepeats(chRpts);
 }
+
 /*********************************************************************
 **  Function: gsetIrRxPin
-**  get or set IR Rx Pin
 **********************************************************************/
 int gsetIrRxPin(bool set) {
     int result = bruceConfigPins.irRx;
@@ -1215,7 +1209,6 @@ int gsetIrRxPin(bool set) {
 
 /*********************************************************************
 **  Function: gsetRfTxPin
-**  get or set RF Tx Pin
 **********************************************************************/
 int gsetRfTxPin(bool set) {
     int result = bruceConfigPins.rfTx;
@@ -1252,7 +1245,6 @@ int gsetRfTxPin(bool set) {
 
 /*********************************************************************
 **  Function: gsetRfRxPin
-**  get or set FR Rx Pin
 **********************************************************************/
 int gsetRfRxPin(bool set) {
     int result = bruceConfigPins.rfRx;
@@ -1289,7 +1281,6 @@ int gsetRfRxPin(bool set) {
 
 /*********************************************************************
 **  Function: setStartupApp
-**  Handles Menu to set startup app
 **********************************************************************/
 void setStartupApp() {
     int idx = 0;
@@ -1321,7 +1312,6 @@ void setStartupApp() {
 
 /*********************************************************************
 **  Function: setGpsBaudrateMenu
-**  Handles Menu to set the baudrate for the GPS module
 **********************************************************************/
 void setGpsBaudrateMenu() {
     options = {
@@ -1339,7 +1329,6 @@ void setGpsBaudrateMenu() {
 
 /*********************************************************************
 **  Function: setWifiApSsidMenu
-**  Handles Menu to set the WiFi AP SSID
 **********************************************************************/
 void setWifiApSsidMenu() {
     const bool isDefault = bruceConfig.wifiAp.ssid == "BruceNet";
@@ -1364,7 +1353,6 @@ void setWifiApSsidMenu() {
 
 /*********************************************************************
 **  Function: setWifiApPasswordMenu
-**  Handles Menu to set the WiFi AP Password
 **********************************************************************/
 void setWifiApPasswordMenu() {
     const bool isDefault = bruceConfig.wifiAp.pwd == "brucenet";
@@ -1389,7 +1377,6 @@ void setWifiApPasswordMenu() {
 
 /*********************************************************************
 **  Function: setWifiApCredsMenu
-**  Handles Menu to configure WiFi AP Credentials
 **********************************************************************/
 void setWifiApCredsMenu() {
     options = {
@@ -1403,7 +1390,6 @@ void setWifiApCredsMenu() {
 
 /*********************************************************************
 **  Function: setNetworkCredsMenu
-**  Main Menu for setting Network credentials (BLE & WiFi)
 **********************************************************************/
 void setNetworkCredsMenu() {
     options = {
@@ -1416,7 +1402,6 @@ void setNetworkCredsMenu() {
 
 /*********************************************************************
 **  Function: setBadUSBBLEMenu
-**  Main Menu for setting Bad USB/BLE options
 **********************************************************************/
 void setBadUSBBLEMenu() {
     options = {
@@ -1431,7 +1416,6 @@ void setBadUSBBLEMenu() {
 
 /*********************************************************************
 **  Function: setBadUSBBLEKeyboardLayoutMenu
-**  Main Menu for setting Bad USB/BLE Keyboard Layout
 **********************************************************************/
 void setBadUSBBLEKeyboardLayoutMenu() {
     uint8_t opt = bruceConfig.badUSBBLEKeyboardLayout;
@@ -1462,7 +1446,6 @@ void setBadUSBBLEKeyboardLayoutMenu() {
 
 /*********************************************************************
 **  Function: setBadUSBBLEKeyDelayMenu
-**  Main Menu for setting Bad USB/BLE Keyboard Key Delay
 **********************************************************************/
 void setBadUSBBLEKeyDelayMenu() {
     String delayStr = num_keyboard(String(bruceConfig.badUSBBLEKeyDelay), 3, "Key Delay (ms):");
@@ -1478,7 +1461,6 @@ void setBadUSBBLEKeyDelayMenu() {
 
 /*********************************************************************
 **  Function: setBadUSBBLEShowOutputMenu
-**  Main Menu for setting Bad USB/BLE Show Output
 **********************************************************************/
 void setBadUSBBLEShowOutputMenu() {
     options.clear();
@@ -1492,8 +1474,7 @@ void setBadUSBBLEShowOutputMenu() {
 }
 
 /*********************************************************************
-**  Function: setMacAddressMenu - @IncursioHack
-**  Handles Menu to configure WiFi MAC Address
+**  Function: setMacAddressMenu
 **********************************************************************/
 void setMacAddressMenu() {
     String currentMAC = bruceConfig.wifiMAC;
@@ -1539,7 +1520,6 @@ void setMacAddressMenu() {
 
 /*********************************************************************
 **  Function: setSPIPins
-**  Main Menu to manually set SPI Pins
 **********************************************************************/
 void setSPIPinsMenu(BruceConfigPins::SPIPins &value) {
     uint8_t opt = 0;
@@ -1594,7 +1574,6 @@ RELOAD:
 
 /*********************************************************************
 **  Function: setUARTPins
-**  Main Menu to manually set SPI Pins
 **********************************************************************/
 void setUARTPinsMenu(BruceConfigPins::UARTPins &value) {
     uint8_t opt = 0;
@@ -1637,7 +1616,6 @@ RELOAD:
 
 /*********************************************************************
 **  Function: setI2CPins
-**  Main Menu to manually set SPI Pins
 **********************************************************************/
 void setI2CPinsMenu(BruceConfigPins::I2CPins &value) {
 #if defined(SOC_HP_I2C_NUM) && SOC_HP_I2C_NUM < 2 && SYS_I2C_SDA >= 0 && SYS_I2C_SCL >= 0
@@ -1685,7 +1663,6 @@ RELOAD:
 
 /*********************************************************************
 **  Function: setTheme
-**  Menu to change Theme
 **********************************************************************/
 void setTheme() {
     FS *fs = &LittleFS;
@@ -1734,8 +1711,6 @@ static bool ble_api_enabled = false;
 
 void enableBLEAPI() {
     if (!ble_api_enabled) {
-        // displayWarning("BLE API require huge amount of RAM.");
-        // displayWarning("Some features may stop working.");
         Serial.println(ESP.getFreeHeap());
         bleApi.setup();
         Serial.println(ESP.getFreeHeap());
@@ -1745,9 +1720,6 @@ void enableBLEAPI() {
 
     ble_api_enabled = !ble_api_enabled;
 
-    // Give the user visual feedback about the new state, otherwise the toggle
-    // looks like it does nothing and gets pressed repeatedly (which cycles the
-    // BLE stack setup/teardown and can corrupt the GATT table).
     if (ble_api_enabled) {
         displayInfo("BLE API ON > Advertising as 'Bruce'", true);
     } else {
