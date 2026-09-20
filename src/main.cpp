@@ -286,11 +286,11 @@ void boot_screen() {
 /*********************************************************************
  **  Function: boot_screen_anim
  **  Matrix "Launcher" (3s) → boot_screen "Bruce/ver/Zyro" (1.5s) → menu
+ **  Title dùng sprite → không nháy
  *********************************************************************/
 void boot_screen_anim() {
     int i = millis();
 
-    // ---- Check ảnh boot custom ----
     int boot_img = 0;
     if (sdcardMounted) {
         if (SD.exists("/boot.jpg")) boot_img = 1;
@@ -328,12 +328,12 @@ void boot_screen_anim() {
     }
 
     // ============================================================
-    //  MATRIX MODE — 3 giây
+    //  MATRIX MODE
     // ============================================================
-    const uint16_t odd_color  = 0x30c5;   // xanh dương mờ
-    const uint16_t even_color = 0x32e5;   // cyan sáng
+    const uint16_t odd_color  = 0x30c5;
+    const uint16_t even_color = 0x32e5;
 
-    static const char* handles[] = { "@PLongDev", "u/plongdeveloper", "gh/plongdeveeloper" };
+    static const char* handles[] = { "@Pirata", "u/bmorcelli", "gh/bmorcelli" };
     static String name = handles[random(0, 3)];
 
     const int matrixTopMargin = 10;
@@ -341,28 +341,53 @@ void boot_screen_anim() {
     uint32_t phase1_start = millis();
     bool skip = false;
 
-    // Vị trí footer
     const int footerY = tftHeight + 2;
     const int footerH = FM * 8 + 4;
 
-    // Vị trí title — tính 1 lần
+    // ============================================================
+    //  ⭐ TẠO SPRITE TITLE 1 LẦN — fix nháy
+    // ============================================================
+    const int OUTLINE = 2;
     const String TITLE = "Launcher";
+
     tft.setTextFont(4);
     tft.setTextSize(2);
-    const int titleW = tft.textWidth(TITLE, 1);
-    const int titleH = tft.fontHeight(1);
-    const int titleX = (tftWidth - titleW) / 2;
-    const int titleY = tftHeight / 2 - titleH / 2;
+    int titleW = tft.textWidth(TITLE, 1);
+    int titleH = tft.fontHeight(1);
+    int sprW = titleW + 2 * OUTLINE;
+    int sprH = titleH + 2 * OUTLINE;
+    int titleX = (tftWidth - titleW) / 2 - OUTLINE;
+    int titleY = (tftHeight - titleH) / 2 - OUTLINE;
+
+    // Dùng sprite `draw` global của Bruce
+    uint16_t TRANSP = 0x0001;   // màu transparency (không trùng với bất kỳ màu nào dùng)
+    bool hasSprite = draw.createSprite(sprW, sprH);
+
+    if (hasSprite) {
+        draw.fillSprite(TRANSP);
+        draw.setTextFont(4);
+        draw.setTextSize(2);
+
+        // Outline 5x5
+        draw.setTextColor(bruceConfig.bgColor);
+        for (int dx = -OUTLINE; dx <= OUTLINE; dx++)
+            for (int dy = -OUTLINE; dy <= OUTLINE; dy++)
+                if (dx || dy) draw.drawString(TITLE, OUTLINE + dx, OUTLINE + dy, 1);
+
+        // Chữ chính
+        draw.setTextColor(bruceConfig.priColor);
+        draw.drawString(TITLE, OUTLINE, OUTLINE, 1);
+    }
 
     // ============================================================
     //  MATRIX LOOP
     // ============================================================
     while (millis() - phase1_start < PHASE1_DURATION) {
 
-        // ===== 1. Border bo góc =====
+        // ===== 1. Border =====
         tft.drawRoundRect(3, 3, tftWidth - 6, tftHeight - 6, 5, bruceConfig.priColor);
 
-        // ===== 2. Matrix scatter pass =====
+        // ===== 2. Matrix scatter =====
         tft.setTextFont(1);
         tft.setTextSize(1);
         int _x = 10, _y = matrixTopMargin;
@@ -387,7 +412,6 @@ void boot_screen_anim() {
                 if (_y >= (tftHeight - 12)) break;
                 tft.setCursor(_x, _y);
 
-                // Watermark region
                 bool inWM = (_y > tftHeight - 30) &&
                             (_x >= tftWidth - 10 - 6 * (int)name.length());
                 if (inWM) {
@@ -407,29 +431,25 @@ void boot_screen_anim() {
             tft.setCursor(_x, _y);
         }
 
-        // ===== 3. TITLE "Launcher" — REDRAW MỖI FRAME =====
-        // Outline 2px quanh chữ (chỉ nét, không fill nền)
-        tft.setTextFont(4);
-        tft.setTextSize(2);
-        tft.setTextColor(bruceConfig.bgColor);
-        for (int dx = -2; dx <= 2; dx++) {
-            for (int dy = -2; dy <= 2; dy++) {
-                if (dx == 0 && dy == 0) continue;
-                tft.drawString(TITLE, titleX + dx, titleY + dy, 1);
-            }
+        // ===== 3. Title qua sprite — 1 phát, không nháy =====
+        if (hasSprite) {
+            draw.pushSprite(titleX, titleY, TRANSP);
+        } else {
+            // Fallback nếu không tạo được sprite
+            tft.setTextFont(4);
+            tft.setTextSize(2);
+            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+            tft.drawCentreString(TITLE, tftWidth / 2, tftHeight / 2, 1);
         }
-        // Chữ chính
-        tft.setTextColor(bruceConfig.priColor);
-        tft.drawString(TITLE, titleX, titleY, 1);
 
-        // ===== 4. Watermark @Pirata =====
+        // ===== 4. Watermark =====
         tft.setTextFont(1);
         tft.setTextSize(1);
         tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
         tft.setCursor(tftWidth - 10 - 6 * name.length(), tftHeight - 25);
         tft.print(name);
 
-        // ===== 5. Footer <<  LAUNCHER  >> =====
+        // ===== 5. Footer =====
         tft.drawRoundRect(5, footerY, tftWidth - 10, footerH, 5, bruceConfig.priColor);
         tft.setTextFont(4);
         tft.setTextSize(1);
@@ -444,8 +464,13 @@ void boot_screen_anim() {
         vTaskDelay(pdMS_TO_TICKS(80));
     }
 
+    // Cleanup sprite
+    if (hasSprite) {
+        draw.deleteSprite();
+    }
+
     // ============================================================
-    //  PHASE 2: boot_screen() "Bruce/ver/Zyro Modz", 1.5 giây
+    //  PHASE 2: boot_screen() "Bruce/ver/Zyro Modz", 1.5s
     // ============================================================
     if (!skip) {
         tft.fillScreen(bruceConfig.bgColor);
